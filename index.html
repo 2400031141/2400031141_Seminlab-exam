@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Image Upload & Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 40px;
+        }
+        img {
+            width: 200px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 2px solid #888;
+            display: none;
+        }
+        #controls { margin-top: 12px; }
+        button { margin-left: 8px; }
+    </style>
+</head>
+<body>
+
+    <h2>Profile Picture Upload & Preview</h2>
+
+    <input type="file" id="imageInput" accept="image/*" aria-label="Choose profile image">
+    <div id="controls">
+        <button id="clearBtn" type="button">Remove saved image</button>
+    </div>
+
+    <img id="preview" alt="Image Preview">
+
+    <script>
+        const input = document.getElementById("imageInput");
+        const preview = document.getElementById("preview");
+        const clearBtn = document.getElementById("clearBtn");
+
+        // Load saved image from local storage on page load
+        const savedImage = localStorage.getItem("profileImage");
+        if (savedImage) {
+            preview.src = savedImage;
+            preview.style.display = "block";
+        }
+
+        // Maximum file size (bytes) to attempt to store in localStorage safely
+        const MAX_BYTES = 1024 * 1024 * 2; // 2 MB
+
+        input.addEventListener("change", function () {
+            const file = this.files && this.files[0];
+            if (!file) return;
+
+            // Basic client-side validation
+            if (!file.type.startsWith("image/")) {
+                alert("Please select a valid image file.");
+                input.value = "";
+                return;
+            }
+
+            if (file.size > MAX_BYTES) {
+                // still allow preview using object URL, but avoid saving large blobs to localStorage
+                const objectUrl = URL.createObjectURL(file);
+                preview.src = objectUrl;
+                preview.style.display = "block";
+                try {
+                    // attempt to read but likely to exceed quota; wrap in try/catch
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        try {
+                            localStorage.setItem("profileImage", e.target.result);
+                        } catch (err) {
+                            // quota exceeded or other error
+                            console.warn("Could not save image to localStorage:", err);
+                            // keep preview from object URL
+                        }
+                    };
+                    reader.onerror = function () {
+                        console.warn("FileReader error while reading large file.");
+                    };
+                    reader.readAsDataURL(file);
+                } catch (err) {
+                    console.warn("Skipping localStorage save for large file:", err);
+                }
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                preview.src = e.target.result;
+                preview.style.display = "block";
+
+                // Save the image in local storage (wrapped in try/catch)
+                try {
+                    localStorage.setItem("profileImage", e.target.result);
+                } catch (err) {
+                    console.warn("Failed to save image to localStorage:", err);
+                }
+            };
+
+            reader.onerror = function () {
+                alert("Failed to read the file. Please try another image.");
+            };
+
+            reader.readAsDataURL(file);
+        });
+
+        clearBtn.addEventListener("click", function () {
+            localStorage.removeItem("profileImage");
+            preview.src = "";
+            preview.style.display = "none";
+            input.value = "";
+        });
+    </script>
+
+</body>
+</html>
